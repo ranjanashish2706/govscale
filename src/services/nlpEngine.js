@@ -134,6 +134,41 @@ export function analyzeSafetyReport(text) {
   const precursors = extractPrecursors(text);
   const explanation = getWhyFlaggedExplanation(classification, rules, precursors);
 
+  // Derive high energy types & missing controls & mitigations for DirectiveModal compatibility
+  const lowerText = (text || '').toLowerCase();
+  const detectedEnergies = [];
+  if (precursors.hazard.includes('h2s') || precursors.hazard.includes('toxic') || lowerText.includes('h2s') || lowerText.includes('gas')) {
+    detectedEnergies.push({ id: 'chem', label: 'Chemical / Toxic Gas (H2S)' });
+  }
+  if (rules.some(r => r.rule === 'Working at Height') || lowerText.includes('height') || lowerText.includes('harness') || lowerText.includes('derrick')) {
+    detectedEnergies.push({ id: 'grav', label: 'Gravity / Fall from Height' });
+  }
+  if (rules.some(r => r.rule === 'Energy Isolation') || lowerText.includes('loto') || lowerText.includes('pressure') || lowerText.includes('flange')) {
+    detectedEnergies.push({ id: 'press', label: 'Pressure & Energy Release' });
+  }
+  if (rules.some(r => r.rule === 'Lifting Operations') || lowerText.includes('crane') || lowerText.includes('suspended') || lowerText.includes('hoist')) {
+    detectedEnergies.push({ id: 'mech', label: 'Mechanical / Suspended Load' });
+  }
+  if (rules.some(r => r.rule === 'Hot Work') || lowerText.includes('welding') || lowerText.includes('spark') || lowerText.includes('grinding')) {
+    detectedEnergies.push({ id: 'therm', label: 'Thermal / Hot Work Spark' });
+  }
+  if (detectedEnergies.length === 0) {
+    detectedEnergies.push({ id: 'gen', label: 'Operational Hazard Exposure' });
+  }
+
+  const missingControls = precursors.barrierFailures.filter(b => b !== 'N/A');
+  if (missingControls.length === 0) {
+    if (rules.length > 0) missingControls.push(`${rules[0].rule} Non-Compliance`);
+    else missingControls.push('Standard Safeguard Omission');
+  }
+
+  const mitigations = [
+    `Issue immediate Work-Stop Order for non-compliant activity until risk assessment is verified by HSE Lead.`,
+    `Enforce mandatory ${rules.length > 0 ? rules[0].rule : 'IOGP Life-Saving Rule'} protocols and inspect barrier controls (${missingControls.join(', ')}).`,
+    `Conduct mandatory Tool Box Talk (TBT) with shift crew at facility before resuming operations.`,
+    `Log incident in OIL HSSE Central Portal with formal corrective actions and follow-up audit deadline.`
+  ];
+
   return {
     rawText: text,
     analyzedAt: new Date().toISOString(),
@@ -141,7 +176,16 @@ export function analyzeSafetyReport(text) {
     mappedRules: rules,
     extractedPrecursors: precursors,
     explanation,
-    reviewStatus: 'PENDING_REVIEW' // For Human-in-the-loop
+    reviewStatus: 'PENDING_REVIEW',
+
+    // Helper aliases for total component compatibility across Executive Dashboard, Risk Analytics, and Directive Modal
+    isSifPrecursor: classification.isSifPotential,
+    sifProbability: classification.confidenceScore,
+    severityLevel: classification.isSifPotential ? 'CRITICAL SIF PRECURSOR' : 'STANDARD SAFETY OBSERVATION',
+    rootCause: rules.length > 0 ? rules[0].rule : (precursors.hazard || 'Operational Hazard'),
+    detectedEnergies,
+    missingControls,
+    mitigations
   };
 }
 

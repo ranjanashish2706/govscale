@@ -17,7 +17,7 @@ export default function App() {
   const [activeDirectiveIncident, setActiveDirectiveIncident] = useState(null);
   const [userRole, setUserRole] = useState('Executive HSE Director');
 
-  const sifPrecursors = dataset.filter(d => d.isSifPrecursor);
+  const sifPrecursors = dataset.filter(d => d.isSifPotential || d.isSifPrecursor);
   const sifCount = sifPrecursors.length;
 
   const handleSelectIncidentForAnalysis = (incident) => {
@@ -27,6 +27,10 @@ export default function App() {
 
   const handleSaveToDataset = (newRecord) => {
     setDataset(prev => [newRecord, ...prev]);
+  };
+
+  const handleUpdateIncident = (updatedRecord) => {
+    setDataset(prev => prev.map(item => item.id === updatedRecord.id ? { ...item, ...updatedRecord } : item));
   };
 
   const handleOpenDirective = (incident) => {
@@ -54,15 +58,19 @@ export default function App() {
           {activeTab === 'overview' && (
             <ExecutiveDashboard
               dataset={dataset}
+              userRole={userRole}
               onSelectIncident={handleSelectIncidentForAnalysis}
               onOpenDirective={handleOpenDirective}
+              setActiveTab={setActiveTab}
             />
           )}
 
           {activeTab === 'live' && (
             <LiveAnalyzer
               initialIncident={selectedIncidentForAnalysis}
+              userRole={userRole}
               onSaveToDataset={handleSaveToDataset}
+              onUpdateIncident={handleUpdateIncident}
               onOpenDirective={handleOpenDirective}
             />
           )}
@@ -71,17 +79,27 @@ export default function App() {
             <BatchAnalyzer
               dataset={dataset}
               setDataset={setDataset}
+              userRole={userRole}
+              onUpdateIncident={handleUpdateIncident}
               onSelectIncident={handleSelectIncidentForAnalysis}
               onOpenDirective={handleOpenDirective}
             />
           )}
 
           {activeTab === 'analytics' && (
-            <RiskAnalytics dataset={dataset} />
+            <RiskAnalytics 
+              dataset={dataset} 
+              onSelectIncident={handleSelectIncidentForAnalysis}
+              onOpenDirective={handleOpenDirective}
+            />
           )}
 
           {activeTab === 'knowledge' && (
-            <KnowledgeBase />
+            <KnowledgeBase 
+              dataset={dataset}
+              onSelectIncident={handleSelectIncidentForAnalysis}
+              setActiveTab={setActiveTab}
+            />
           )}
         </main>
       </div>
